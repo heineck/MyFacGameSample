@@ -22,6 +22,7 @@ import com.facebook.GraphRequest;
 import com.facebook.GraphResponse;
 import com.facebook.Profile;
 import com.facebook.ProfileTracker;
+import com.facebook.login.LoginManager;
 import com.facebook.login.LoginResult;
 import com.facebook.login.widget.LoginButton;
 import com.facebook.login.widget.ProfilePictureView;
@@ -33,9 +34,12 @@ import com.facebook.share.widget.GameRequestDialog;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Arrays;
 import java.util.List;
 
 import bolts.AppLinks;
+
+import static java.util.Arrays.*;
 
 /**
  * A placeholder fragment containing a simple view.
@@ -53,6 +57,8 @@ public class MainActivityFragment extends Fragment {
     AccessTokenTracker accessTokenTracker;
     AccessToken accessToken;
     GameRequestDialog gameRequestDialog;
+    String myProfileId;
+    String myProfileName;
 
     public MainActivityFragment() {
     }
@@ -94,6 +100,10 @@ public class MainActivityFragment extends Fragment {
                 Log.d(TAG, "Recently granted permissions: " + loginResult.getRecentlyGrantedPermissions().toString());
                 Log.d(TAG, "Recently denied permissions: " + loginResult.getRecentlyDeniedPermissions().toString());
 
+                if (loginResult.getRecentlyGrantedPermissions().contains("publish_actions") == false) {
+                    LoginManager.getInstance().logInWithPublishPermissions(MainActivityFragment.this, Arrays.asList("publish_actions"));
+                }
+
                 RequestProfileData();
 
             }
@@ -111,6 +121,8 @@ public class MainActivityFragment extends Fragment {
             }
         });
 
+        RequestProfileData();
+
         profileTracker = new ProfileTracker() {
             @Override
             protected void onCurrentProfileChanged(
@@ -119,6 +131,9 @@ public class MainActivityFragment extends Fragment {
                 // App code
 
                 Log.d(TAG, "ProfileTracker called");
+
+                myProfileId = currentProfile.getId();
+                myProfileName = currentProfile.getName();
 
             }
         };
@@ -131,6 +146,7 @@ public class MainActivityFragment extends Fragment {
                 // Set the access token using
                 // currentAccessToken when it's loaded or set.
                 Log.d(TAG, "AccessToken called");
+
             }
         };
         // If the access token is available already assign it.
@@ -146,9 +162,23 @@ public class MainActivityFragment extends Fragment {
                 new FacebookCallback<GameRequestDialog.Result>() {
                     public void onSuccess(GameRequestDialog.Result result) {
                         String id = result.getRequestId();
+                        
 
                         Log.d(TAG, "request_id: " + id);
                         Log.d(TAG, "friend_ids: " + result.getRequestRecipients().toString());
+
+                        String friendProfileId = result.getRequestRecipients().get(0);
+
+                        Log.d(TAG, "myProfileId: " + myProfileId);
+                        Log.d(TAG, "myProfileName: " + myProfileName);
+                        Log.d(TAG, "friendProfileId: " + friendProfileId);
+
+                        Intent i = new Intent(getActivity(), ChallengeActivity.class);
+                        i.putExtra("MY_PROFILE_ID", myProfileId);
+                        i.putExtra("MY_PROFILE_NAME", myProfileName);
+                        i.putExtra("FRIEND_PROFILE_ID", friendProfileId);
+
+                        getActivity().startActivity(i);
 
                     }
 
@@ -181,6 +211,7 @@ public class MainActivityFragment extends Fragment {
     }
 
     public void RequestProfileData(){
+
         GraphRequest request = GraphRequest.newMeRequest(AccessToken.getCurrentAccessToken(), new GraphRequest.GraphJSONObjectCallback() {
             @Override
             public void onCompleted(JSONObject object,GraphResponse response) {
@@ -193,6 +224,9 @@ public class MainActivityFragment extends Fragment {
                         String id = json.getString("id");
 
                         Log.d(TAG, "facebook id: " + id);
+
+                        myProfileId = id;
+                        myProfileName = name;
 
                         imgProfile.setProfileId(id);
                         txtProfileName.setText(name);
@@ -211,11 +245,78 @@ public class MainActivityFragment extends Fragment {
 
     public void requestInvite() {
 
+        //inviteByAppInvite();
+        invitebyGameRequest();
+
+    }
+
+    public void invitebyGameRequest() {
+
         GameRequestContent content = new GameRequestContent.Builder()
                 .setMessage("Estou lhe desafiando!!!")
+                .setTitle("Estou lhe desafiando!!!")
                 .build();
         gameRequestDialog.show(content);
 
+    }
+
+    public void inviteByAppInvite() {
+
+        String appLinkUrl = "https://fb.me/1569453850035766";
+        String previewImageUrl = "http://musingsofacurvylady.com/wp-content/uploads/2014/10/homer-simpson.jpg";
+        final String TAG = "fbv4";
+
+        if (AccessToken.getCurrentAccessToken() == null) {
+            // start login...
+        } else {
+            //FacebookSdk.sdkInitialize(getActivity().getApplicationContext());
+            //CallbackManager callbackManager = CallbackManager.Factory.create();
+
+            FacebookCallback<AppInviteDialog.Result> facebookCallback = new FacebookCallback<AppInviteDialog.Result>() {
+                @Override
+                public void onSuccess(AppInviteDialog.Result result) {
+
+                    Bundle bundle = result.getData();
+
+                    Log.i(TAG, "InviteCallback - SUCCESS!" + bundle);
+
+                    Log.i(TAG, "InviteCallback - bundle: " + bundle2string(bundle));
+
+                }
+
+                @Override
+                public void onCancel() {
+                    Log.i(TAG, "InviteCallback - CANCEL!");
+                }
+
+                @Override
+                public void onError(FacebookException e) {
+                    Log.e(TAG, "InviteCallback - ERROR! " + e.getMessage());
+                }
+            };
+
+            AppInviteDialog appInviteDialog = new AppInviteDialog(MainActivityFragment.this);
+            if (appInviteDialog.canShow()) {
+                AppInviteContent.Builder content = new AppInviteContent.Builder();
+                content.setApplinkUrl(appLinkUrl);
+                content.setPreviewImageUrl(previewImageUrl);
+                AppInviteContent appInviteContent = content.build();
+                appInviteDialog.registerCallback(callbackManager, facebookCallback);
+                appInviteDialog.show(MainActivityFragment.this, appInviteContent);
+            }
+        }
+    }
+
+    public static String bundle2string(Bundle bundle) {
+        if (bundle == null) {
+            return null;
+        }
+        String string = "Bundle{";
+        for (String key : bundle.keySet()) {
+            string += " " + key + " => " + bundle.get(key) + ";";
+        }
+        string += " }Bundle";
+        return string;
     }
 
 }

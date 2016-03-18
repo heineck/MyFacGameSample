@@ -2,4 +2,5 @@
     <string name="app_name">MyFacGameSample</string>
     <string name="action_settings">Settings</string>
     <string name="facebook_app_id">1568997650081386</string>
+    <string name="title_activity_challenge">ChallengeActivity</string>
 </resources>
